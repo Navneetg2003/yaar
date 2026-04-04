@@ -1,27 +1,69 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Login from "./pages/Login";
-import Chat from "./pages/Chat";
 import Onboarding from "./pages/Onboarding";
-import "./App.css";
+import ChatView from "./pages/ChatView";
+import JournalView from "./pages/JournalView";
+import MoodView from "./pages/MoodView";
+import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
+import MoodCheckIn from "./components/MoodCheckIn";
 
-function App() {
+function Dashboard() {
+  const { isAuthenticated, loading } = useAuth();
+  const navigate                     = useNavigate();
+  const [activeView, setActiveView]  = useState("chat");
+  const [showMood, setShowMood]      = useState(false);
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) navigate("/login");
+  }, [isAuthenticated, loading]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
+        <div className="loader-ring" />
+      </div>
+    );
+  }
+  if (!isAuthenticated) return null;
+
+  const views = {
+    chat:    <ChatView />,
+    journal: <JournalView />,
+    mood:    <MoodView />,
+  };
+
   return (
-    <Router>
-      <Routes>
-        {/* Login (default route) */}
-        <Route path="/" element={<Login />} />
+    <div className="app-shell">
+      <div className="orb orb-1" />
+      <div className="orb orb-2" />
+      <div className="orb orb-3" />
 
-        {/* Onboarding welcome screen */}
-        <Route path="/onboarding" element={<Onboarding />} />
+      <Navbar onMoodClick={() => setShowMood(true)} />
 
-        {/* Main chat interface */}
-        <Route path="/chat" element={<Chat />} />
+      <div className="app-body">
+        <Sidebar active={activeView} onChange={setActiveView} />
+        <main className="app-main">{views[activeView]}</main>
+      </div>
 
-        {/* Catch-all redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+      {showMood && <MoodCheckIn onClose={() => setShowMood(false)} />}
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login"      element={<Login />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/dashboard"  element={<Dashboard />} />
+          <Route path="*"           element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}

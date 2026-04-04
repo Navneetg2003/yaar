@@ -1,195 +1,96 @@
-/**
- * API service - handles all HTTP requests to the Yaar backend
- * Base URL determined by environment or defaults to localhost:5000
- */
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+function getToken() {
+  return localStorage.getItem("yaar_token");
+}
 
-/**
- * Helper to make authenticated requests with JWT token
- */
-async function fetchWithAuth(endpoint, options = {}) {
-  const token = localStorage.getItem("yaar_token");
-
-  const headers = {
+function authHeaders() {
+  return {
     "Content-Type": "application/json",
-    ...options.headers,
+    Authorization: `Bearer ${getToken()}`,
   };
+}
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+async function handleResponse(res) {
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Something went wrong.");
+  return data;
+}
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
+export async function apiRegister(email, password) {
+  const res = await fetch(`${BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || `API Error: ${response.status}`);
-  }
-
-  return response.json();
+  return handleResponse(res);
 }
 
-/**
- * Stream responses from the chat endpoint (Server-Sent Events)
- */
-async function chatStream(message, onToken, onComplete, onError) {
-  const token = localStorage.getItem("yaar_token");
-
-  const headers = { "Content-Type": "application/json" };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/api/chat/message`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ message }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Chat failed");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-
-      buffer = lines.pop(); // Keep incomplete line in buffer
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.token) {
-              onToken(data.token);
-            }
-            if (data.response) {
-              onComplete(data.response);
-            }
-            if (data.flagged) {
-              onComplete(null, data.response, data.flagged);
-            }
-          } catch (e) {
-            console.error("Parse error:", e);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    onError(err.message);
-  }
+export async function apiLogin(email, password) {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return handleResponse(res);
 }
 
-// ─── Auth Endpoints ───────────────────────────────────────────
+export async function apiLoginAnonymous() {
+  const res = await fetch(`${BASE}/api/auth/anonymous`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return handleResponse(res);
+}
 
-export const auth = {
-  /**
-   * Register new account with email + password
-   */
-  register: async (email, password) => {
-    return fetchWithAuth("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-  },
+export async function apiSendMessage(message) {
+  const res = await fetch(`${BASE}/api/chat/message`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || "Failed to send message.");
+  }
+  return res;
+}
 
-  /**
-   * Login with email + password
-   */
-  login: async (email, password) => {
-    return fetchWithAuth("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-  },
+export async function apiGetHistory() {
+  const res = await fetch(`${BASE}/api/chat/history`, { headers: authHeaders() });
+  return handleResponse(res);
+}
 
-  /**
-   * Create anonymous session (no email/password needed)
-   */
-  anonymous: async () => {
-    return fetchWithAuth("/api/auth/anonymous", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-  },
+export async function apiLogMood(score, label, note = "") {
+  const res = await fetch(`${BASE}/api/mood`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ score, label, note }),
+  });
+  return handleResponse(res);
+}
 
-  /**
-   * Get current user info from token
-   */
-  me: async () => {
-    return fetchWithAuth("/api/auth/me");
-  },
-};
+export async function apiGetMoodSummary() {
+  const res = await fetch(`${BASE}/api/mood/summary`, { headers: authHeaders() });
+  return handleResponse(res);
+}
 
-// ─── Chat Endpoints ───────────────────────────────────────────
+export async function apiGetJournal(date) {
+  const params = date ? `?date=${date}` : "";
+  const res = await fetch(`${BASE}/api/journal${params}`, { headers: authHeaders() });
+  return handleResponse(res);
+}
 
-export const chat = {
-  /**
-   * Send message and stream response
-   */
-  sendMessage: async (message, onToken, onComplete, onError) => {
-    return chatStream(message, onToken, onComplete, onError);
-  },
+export async function apiSaveJournal(content, date) {
+  const res = await fetch(`${BASE}/api/journal`, {
+    method: "PUT",
+    headers: authHeaders(),
+    body: JSON.stringify({ content, date }),
+  });
+  return handleResponse(res);
+}
 
-  /**
-   * Get chat history (last 50 messages)
-   */
-  history: async () => {
-    return fetchWithAuth("/api/chat/history");
-  },
-};
-
-// ─── Mood Endpoints ───────────────────────────────────────────
-
-export const mood = {
-  /**
-   * Log a mood score (1-5) with optional note
-   */
-  log: async (score, note = null) => {
-    return fetchWithAuth("/api/mood", {
-      method: "POST",
-      body: JSON.stringify({ score, note }),
-    });
-  },
-
-  /**
-   * Get last 30 mood entries
-   */
-  getAll: async () => {
-    return fetchWithAuth("/api/mood");
-  },
-
-  /**
-   * Get 7-day mood summary
-   */
-  summary: async () => {
-    return fetchWithAuth("/api/mood/summary");
-  },
-};
-
-// ─── Health Check ─────────────────────────────────────────────
-
-export const health = async () => {
-  const response = await fetch(`${API_BASE}/api/health`);
-  return response.json();
-};
-
-export default {
-  auth,
-  chat,
-  mood,
-  health,
-};
+export async function apiGetJournalDates() {
+  const res = await fetch(`${BASE}/api/journal/dates`, { headers: authHeaders() });
+  return handleResponse(res);
+}

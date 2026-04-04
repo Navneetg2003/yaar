@@ -1,122 +1,82 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { chat } from "../services/api";
+import { useState, useCallback } from "react";
+import { apiSendMessage, apiGetHistory } from "../services/api";
 
-/**
- * useChat hook - manages chat state, messages, and streaming responses
- */
 export function useChat() {
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [crisisDetected, setCrisisDetected] = useState(false);
-  const messagesEndRef = useRef(null);
+  const [messages, setMessages]      = useState([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError]            = useState(null);
 
-  // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  /**
-   * Load chat history from server
-   */
-  const loadHistory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  async function loadHistory() {
     try {
-      const { messages: history } = await chat.history();
-      setMessages(history || []);
+      const data = await apiGetHistory();
+      if (data.messages?.length) {
+        setMessages(data.messages.map((m) => ({
+          id: m.id, role: m.role, content: m.content,
+          flagged: m.flagged, timestamp: m.created_at,
+        })));
+      }
+    } catch (err) {
+      console.warn("Could not load history:", err.message);
+    }
+  }
+
+  const send = useCallback(async (text) => {
+    if (!text.trim() || isStreaming) return;
+    setError(null);
+
+    const assistantId = `a-${Date.now()}`;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `u-${Date.now()}`, role: "user", content: text, timestamp: new Date().toISOString() },
+      { id: assistantId,       role: "assistant", content: "", timestamp: new Date().toISOString() },
+    ]);
+
+    setIsStreaming(true);
+
+    try {
+      const res = await apiSendMessage(text);
+      const contentType = res.headers.get("content-type") || "";
+
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        setMessages((prev) =>
+          prev.map((m) => m.id === assistantId
+            ? { ...m, content: data.response, flagged: data.flagged }
+            : m)
+        );
+        return;
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full      = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const lines = decoder.decode(value, { stream: true }).split("\n");
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const { token } = JSON.parse(payload);
+            full += token;
+            setMessages((prev) =>
+              prev.map((m) => m.id === assistantId ? { ...m, content: full } : m)
+            );
+          } catch { /* skip malformed chunk */ }
+        }
+      }
     } catch (err) {
       setError(err.message);
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
     } finally {
-      setLoading(false);
+      setIsStreaming(false);
     }
-  }, []);
+  }, [isStreaming]);
 
-  /**
-   * Send a message and stream the response
-   */
-  const sendMessage = useCallback(
-    async (userMessage) => {
-      if (!userMessage.trim()) return;
-
-      // Add user message immediately
-      const userMsg = {
-        id: Date.now(),
-        role: "user",
-        content: userMessage,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-      setError(null);
-      setCrisisDetected(false);
-      setLoading(true);
-
-      // Add placeholder for AI response
-      const aiMsgId = Date.now() + 1;
-      const aiMsg = {
-        id: aiMsgId,
-        role: "assistant",
-        content: "",
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-
-      try {
-        await chat.sendMessage(
-          userMessage,
-          // onToken - accumulate streamed tokens
-          (token) => {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === aiMsgId
-                  ? { ...msg, content: msg.content + token }
-                  : msg
-              )
-            );
-          },
-          // onComplete - final response
-          (response, flagged) => {
-            if (flagged) {
-              setCrisisDetected(true);
-            }
-          },
-          // onError
-          (err) => {
-            setError(err);
-            // Remove incomplete AI message on error
-            setMessages((prev) => prev.filter((msg) => msg.id !== aiMsgId));
-          }
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
-
-  /**
-   * Clear all messages
-   */
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-    setError(null);
-    setCrisisDetected(false);
-  }, []);
-
-  return {
-    messages,
-    loading,
-    error,
-    crisisDetected,
-    messagesEndRef,
-    sendMessage,
-    loadHistory,
-    clearMessages,
-  };
+  return { messages, isStreaming, error, send, loadHistory };
 }
-
-export default useChat;

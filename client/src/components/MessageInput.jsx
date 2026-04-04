@@ -1,40 +1,57 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
-/**
- * MessageInput - text input for sending messages
- */
-export function MessageInput({ onSend, disabled }) {
-  const [message, setMessage] = useState("");
+export default function MessageInput({ onSend, disabled }) {
+  const [text, setText] = useState("");
+  const textareaRef     = useRef(null);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (message.trim() && !disabled) {
-      onSend(message);
-      setMessage("");
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  }, [text]);
+
+  function handleSend() {
+    const trimmed = text.trim();
+    if (!trimmed || disabled) return;
+    onSend(trimmed);
+    setText("");
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-300 bg-white p-4">
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Tell me what's on your mind..."
+    <div className="input-bar px-4 py-3">
+      <div className="input-inner flex items-end gap-2">
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="tell yaar anything..."
           disabled={disabled}
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          rows={1}
+          className="chat-input flex-1 bg-transparent resize-none outline-none py-1"
         />
         <button
-          type="submit"
-          disabled={disabled || !message.trim()}
-          className="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition"
+          onClick={handleSend}
+          disabled={!text.trim() || disabled}
+          className="send-btn flex-shrink-0"
+          aria-label="Send"
         >
-          Send
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
         </button>
       </div>
-    </form>
+      <p className="text-center mt-2" style={{ fontSize: "10px", color: "var(--text-muted)", opacity: 0.5 }}>
+        Yaar is an AI — not a therapist. For emergencies call iCall: 9152987821
+      </p>
+    </div>
   );
 }
-
-export default MessageInput;

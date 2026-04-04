@@ -1,85 +1,88 @@
 import { useState } from "react";
-import { mood as moodAPI } from "../services/api";
+import { apiLogMood } from "../services/api";
+import { MOODS } from "../utils/formatMessage";
 
-/**
- * MoodCheckIn - allows user to log their current mood (1-5 scale)
- */
-export function MoodCheckIn({ onMoodLogged }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [note, setNote] = useState("");
+export default function MoodCheckIn({ onClose }) {
+  const [selected, setSelected] = useState(null);
+  const [note, setNote]         = useState("");
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
 
-  const moods = [
-    { score: 1, emoji: "😢", label: "Terrible" },
-    { score: 2, emoji: "😟", label: "Bad" },
-    { score: 3, emoji: "😐", label: "Okay" },
-    { score: 4, emoji: "🙂", label: "Good" },
-    { score: 5, emoji: "😄", label: "Great" },
-  ];
-
-  const handleMoodSelect = async (score) => {
-    setLoading(true);
+  async function handleSave() {
+    if (!selected) return;
+    setSaving(true);
     try {
-      await moodAPI.log(score, note || null);
-      setIsOpen(false);
-      setNote("");
-      if (onMoodLogged) onMoodLogged(score);
+      await apiLogMood(selected.score, selected.label, note);
+      setSaved(true);
+      setTimeout(onClose, 1400);
     } catch (err) {
-      console.error("Failed to log mood:", err);
+      console.error("Mood save failed:", err.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  };
+  }
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-medium hover:bg-purple-200 transition"
-      >
-        <span>😊 How are you?</span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-80 z-50">
-          <h3 className="font-semibold text-gray-900 mb-3">How are you feeling right now?</h3>
-
-          {/* Mood selector */}
-          <div className="grid grid-cols-5 gap-2 mb-4">
-            {moods.map((mood) => (
-              <button
-                key={mood.score}
-                onClick={() => handleMoodSelect(mood.score)}
-                disabled={loading}
-                className="flex flex-col items-center p-2 hover:bg-gray-100 rounded transition disabled:opacity-50"
-                title={mood.label}
-              >
-                <span className="text-3xl">{mood.emoji}</span>
-                <span className="text-xs text-gray-600 mt-1">{mood.label}</span>
-              </button>
-            ))}
+    <div className="modal-overlay">
+      <div className="modal-card">
+        {saved ? (
+          <div className="text-center py-6">
+            <p style={{ fontSize: 40 }}>✨</p>
+            <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>Noted, yaar.</p>
           </div>
+        ) : (
+          <>
+            <h3 className="text-center text-lg mb-1"
+              style={{ color: "var(--text)", fontFamily: "'Playfair Display', serif" }}>
+              kaisa feel ho raha hai?
+            </h3>
+            <p className="text-center text-xs mb-5" style={{ color: "var(--text-muted)" }}>
+              how are you feeling right now?
+            </p>
 
-          {/* Optional note */}
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Add a note (optional)..."
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-purple-500 mb-3"
-            rows={2}
-          />
+            <div className="flex justify-between mb-4">
+              {MOODS.map((mood) => (
+                <button key={mood.score} onClick={() => setSelected(mood)}
+                  className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-200"
+                  style={{
+                    background: selected?.score === mood.score ? mood.colorLight : "transparent",
+                    transform:  selected?.score === mood.score ? "scale(1.12)" : "scale(1)",
+                    border: "none", cursor: "pointer",
+                  }}>
+                  <span style={{ fontSize: 24 }}>{mood.emoji}</span>
+                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>{mood.label}</span>
+                </button>
+              ))}
+            </div>
 
-          <button
-            onClick={() => setIsOpen(false)}
-            className="w-full px-3 py-2 bg-gray-200 text-gray-700 rounded font-medium hover:bg-gray-300 transition disabled:opacity-50"
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Close"}
-          </button>
-        </div>
-      )}
+            {selected && (
+              <input type="text" value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="anything you want to add?"
+                className="mood-note-input w-full mb-4"
+                style={{ fontFamily: "'Caveat', cursive" }}
+              />
+            )}
+
+            <div className="flex gap-2">
+              <button onClick={onClose}
+                className="flex-1 py-2 text-sm rounded-xl"
+                style={{ color: "var(--text-muted)", background: "transparent", border: "none", cursor: "pointer" }}>
+                skip
+              </button>
+              <button onClick={handleSave} disabled={!selected || saving}
+                className="flex-1 py-2 text-sm font-medium rounded-xl"
+                style={{
+                  background: "linear-gradient(135deg, var(--amber), #e8895a)",
+                  color: "#080B18", border: "none", cursor: "pointer",
+                  opacity: (!selected || saving) ? 0.4 : 1,
+                }}>
+                {saving ? "saving…" : "save"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
-
-export default MoodCheckIn;
