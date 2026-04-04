@@ -1,12 +1,8 @@
-// ─── Crisis keywords ──────────────────────────────────────────
-// Covers English, Hindi, and Hinglish patterns
 const CRISIS_KEYWORDS = [
-  // English
   "kill myself", "end my life", "want to die", "suicidal",
   "suicide", "self harm", "self-harm", "cut myself", "hurt myself",
   "can't go on", "cannot go on", "no point living", "not worth living",
   "better off dead", "end it all", "end everything",
-  // Hindi / Hinglish
   "marna chahta", "marna chahti", "jaan dena", "khatam karna",
   "khatam kar lunga", "khatam kar lungi", "jeena nahi",
   "mar jaana", "mar jaunga", "mar jaungi",
@@ -27,19 +23,12 @@ These are real people who care and will listen — no judgment at all.
 
 I'm still here with you. 💙`;
 
-/**
- * Checks if a message contains crisis signals.
- * Returns true if crisis detected, false otherwise.
- */
 export function crisisCheck(message) {
   if (!message || typeof message !== "string") return false;
   const lower = message.toLowerCase();
-  return CRISIS_KEYWORDS.some((keyword) => lower.includes(keyword));
+  return CRISIS_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-/**
- * Returns the pre-written crisis response.
- */
 export function getCrisisResponse() {
   return HELPLINE_RESPONSE;
 }

@@ -1,16 +1,12 @@
 {
-  "name": "server",
+  "name": "yaar-server",
   "version": "1.0.0",
-  "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
-  "start": "node index.js",
-  "dev": "nodemon index.js"  
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.101.0",
     "@upstash/redis": "^1.37.0",

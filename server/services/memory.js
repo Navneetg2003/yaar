@@ -2,12 +2,8 @@ import redis from "../db/redis.js";
 import supabase from "../db/supabase.js";
 
 const RECENT_MSG_COUNT = 12;
-const REDIS_TTL = 60 * 60 * 24; // 24 hours
+const REDIS_TTL = 60 * 60 * 24;
 
-/**
- * Get recent messages for a user.
- * Tries Redis first (fast), falls back to Postgres (reliable).
- */
 export async function getRecentMessages(userId) {
   const key = `messages:${userId}`;
 
@@ -18,7 +14,6 @@ export async function getRecentMessages(userId) {
     console.warn("Redis read failed, falling back to Postgres:", err.message);
   }
 
-  // Fallback: fetch from Postgres
   const { data, error } = await supabase
     .from("messages")
     .select("role, content")
@@ -30,7 +25,6 @@ export async function getRecentMessages(userId) {
 
   const messages = (data || []).reverse();
 
-  // Repopulate Redis cache
   try {
     await redis.set(key, messages, { ex: REDIS_TTL });
   } catch (err) {
@@ -40,21 +34,16 @@ export async function getRecentMessages(userId) {
   return messages;
 }
 
-/**
- * Save a message to Postgres and update Redis cache.
- */
 export async function saveMessage(userId, conversationId, role, content) {
-  // Save to Postgres
   const { error } = await supabase
     .from("messages")
     .insert({ user_id: userId, conversation_id: conversationId, role, content });
 
   if (error) throw new Error("Failed to save message: " + error.message);
 
-  // Update Redis cache
   try {
     const key = `messages:${userId}`;
-    const cached = await redis.get(key) || [];
+    const cached = (await redis.get(key)) || [];
     const updated = [...cached, { role, content }].slice(-RECENT_MSG_COUNT);
     await redis.set(key, updated, { ex: REDIS_TTL });
   } catch (err) {
@@ -62,9 +51,6 @@ export async function saveMessage(userId, conversationId, role, content) {
   }
 }
 
-/**
- * Get or create a conversation for today.
- */
 export async function getOrCreateConversation(userId) {
   const today = new Date().toISOString().split("T")[0];
 

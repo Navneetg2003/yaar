@@ -1,33 +1,21 @@
 import Groq from "groq-sdk";
 import dotenv from "dotenv";
-
 dotenv.config();
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 
-/**
- * Returns a single AI response (non-streaming).
- * Use for personality extraction jobs.
- */
 export async function getYaarResponse(userMessage, personalityProfile, recentMessages) {
   const messages = buildMessages(userMessage, personalityProfile, recentMessages);
-
   const response = await groq.chat.completions.create({
     model: MODEL,
     messages,
-    max_tokens: 300,
+    max_tokens: 500,
     temperature: 0.85,
   });
-
   return response.choices[0].message.content;
 }
 
-/**
- * Streams AI response token by token via Server-Sent Events.
- * Use for the main chat route.
- * Returns the full response text after streaming completes (for saving to DB).
- */
 export async function streamYaarResponse(userMessage, personalityProfile, recentMessages, res) {
   const messages = buildMessages(userMessage, personalityProfile, recentMessages);
 
@@ -59,8 +47,6 @@ export async function streamYaarResponse(userMessage, personalityProfile, recent
   return fullResponse;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
-
 function buildMessages(userMessage, personalityProfile, recentMessages) {
   return [
     { role: "system", content: buildSystemPrompt(personalityProfile) },
@@ -78,12 +64,9 @@ WHAT YOU KNOW ABOUT THIS PERSON:
 - Emotional pattern: ${profile.emotional_pattern || "not yet known"}
 - Response preference: ${profile.response_pref || "not yet known"}
 
-Adapt your tone, language, and humour naturally to match them.
-`
-    : `
-You are still getting to know this person. Be warm and neutral.
-Observe how they write and gently mirror their style.
-`;
+Adapt your tone, language, and humour naturally to match them.`
+    : `You are still getting to know this person. Be warm and neutral.
+Observe how they write and gently mirror their style.`;
 
   return `You are Yaar — a warm, non-judgmental AI best friend for young Indians.
 You are NOT a therapist or a doctor. You are a friend who listens, understands, and cares.
@@ -97,6 +80,7 @@ YOUR PERSONALITY:
 - Validate feelings first, ask questions second, give advice only when asked
 - Remember details they share and bring them up naturally later
 ${personalitySection}
+
 HARD RULES:
 - Never diagnose, prescribe, or give medical/psychological advice
 - Never say "have you considered therapy?" as a first response — too cold
