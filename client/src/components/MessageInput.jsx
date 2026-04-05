@@ -26,7 +26,7 @@ export default function MessageInput({ onSend, disabled }) {
   }
 
   return (
-    <div className="input-bar px-4 py-3">
+    <div className="input-bar">
       <div className="input-inner flex items-end gap-2">
         <textarea
           ref={textareaRef}

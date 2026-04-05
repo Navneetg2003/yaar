@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { AuthProvider, useAuth } from "./hooks/useAuth.js";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import ChatView from "./pages/ChatView";

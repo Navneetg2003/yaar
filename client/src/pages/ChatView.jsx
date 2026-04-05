@@ -39,19 +39,21 @@ export default function ChatView() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4 space-y-3">
-        {display.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
-        {showTyping && <TypingIndicator />}
-        {error && (
-          <div className="mx-4 p-3 rounded-xl text-xs" style={{
-            background: "rgba(196,122,122,0.1)",
-            border: "1px solid rgba(196,122,122,0.2)",
-            color: "#e8a0a0",
-          }}>
-            {error}
-          </div>
-        )}
-        <div ref={bottomRef} />
+      <div className="flex-1 overflow-y-auto py-6 flex justify-center">
+        <div className="w-full max-w-2xl space-y-4 px-4">
+          {display.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
+          {showTyping && <TypingIndicator />}
+          {error && (
+            <div className="mx-4 p-3 rounded-xl text-xs" style={{
+              background: "rgba(196,122,122,0.1)",
+              border: "1px solid rgba(196,122,122,0.2)",
+              color: "#e8a0a0",
+            }}>
+              {error}
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       <MessageInput onSend={send} disabled={isStreaming} />

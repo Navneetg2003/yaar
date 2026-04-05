@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect, createContext, useContext } from "react";
 import { apiLogin, apiRegister, apiLoginAnonymous } from "../services/api";
 
 const AuthContext = createContext(null);
@@ -47,14 +47,20 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
-  return (
-    <AuthContext.Provider value={{
-      user, loading,
-      login, register, loginAnonymous, logout,
-      isAuthenticated: !!user,
-    }}>
-      {children}
-    </AuthContext.Provider>
+  return React.createElement(
+    AuthContext.Provider,
+    {
+      value: {
+        user,
+        loading,
+        login,
+        register,
+        loginAnonymous,
+        logout,
+        isAuthenticated: !!user,
+      },
+    },
+    children
   );
 }
 
