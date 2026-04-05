@@ -15,48 +15,67 @@ export default function ChatView() {
   const { messages, isStreaming, error, send, loadHistory } = useChat();
   const bottomRef = useRef(null);
 
-  useEffect(() => { loadHistory(); }, []);
+  // loadHistory in deps array to satisfy exhaustive-deps rule
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
+  // Scroll to bottom whenever messages update or streaming starts/stops
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  const display    = messages.length === 0 ? [WELCOME] : messages;
-  const showTyping = isStreaming && messages[messages.length - 1]?.content === "";
+  // Show welcome message only when history is empty
+  const display = messages.length === 0 ? [WELCOME] : messages;
+
+  // Show typing indicator whenever AI is streaming —
+  // even if last message already has partial content
+  const showTyping = isStreaming;
 
   return (
-    <div className="view-panel flex flex-col">
+    <div className="view-panel">
+
+      {/* Header */}
       <div className="chat-header">
         <div className="yaar-avatar-sm">Y</div>
         <div>
-          <p className="text-sm" style={{ color: "var(--text)", fontFamily: "'Playfair Display', serif", fontStyle: "italic" }}>
+          <p style={{
+            fontSize: "14px",
+            color: "var(--text)",
+            fontFamily: "'Playfair Display', serif",
+            fontStyle: "italic",
+          }}>
             yaar bot
           </p>
-          <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+          <p style={{
+            fontSize: "12px",
+            color: "var(--text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            marginTop: "2px",
+          }}>
             <span className={`status-dot ${isStreaming ? "typing" : "online"}`} />
             {isStreaming ? "typing…" : "always here"}
           </p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-6 flex justify-center">
-        <div className="w-full max-w-2xl space-y-4 px-4">
-          {display.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
+      {/* Message list */}
+      <div className="chat-scroll">
+        <div className="chat-messages">
+          {display.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))}
           {showTyping && <TypingIndicator />}
-          {error && (
-            <div className="mx-4 p-3 rounded-xl text-xs" style={{
-              background: "rgba(196,122,122,0.1)",
-              border: "1px solid rgba(196,122,122,0.2)",
-              color: "#e8a0a0",
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <div className="chat-error">{error}</div>}
           <div ref={bottomRef} />
         </div>
       </div>
 
+      {/* Input */}
       <MessageInput onSend={send} disabled={isStreaming} />
+
     </div>
   );
 }
